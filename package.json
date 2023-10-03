@@ -1,7 +1,7 @@
 {
   "name": "@mia-burton/vue-components",
   "version": "1.0.0",
-  "private": true,
+  "private": false,
   "author": "rtmb",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
