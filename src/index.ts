@@ -1,3 +1,3 @@
-import VirtualMirror from '@/components/VirtualMirror.vue'
+import VirtualMirror from "@/components/VirtualMirror.vue";
 
-export { VirtualMirror }
+export { VirtualMirror };

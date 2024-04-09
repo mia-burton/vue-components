@@ -7,73 +7,84 @@
 </template>
 
 <script lang="ts" setup>
-import { shallowRef, computed, onMounted, withDefaults } from 'vue'
-import downloadImage from '@/utils/downloadImage'
+import { shallowRef, computed, onMounted, withDefaults } from "vue";
+import downloadImage from "@/utils/downloadImage";
 
 export interface Props {
-  screenshotName: string
-  target: string
-  lang: string
-  vmKey: string
-  channel: string
-  brand: string
-  storeId: string
-  upc: string
-  imageHandler: typeof downloadImage
+  screenshotName: string;
+  target: string;
+  lang: string;
+  vmKey: string;
+  channel: string;
+  brand: string;
+  storeId: string;
+  upc: string;
+  imageHandler: typeof downloadImage;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  screenshotName: '',
-  target: 'target-mirror',
-  lang: 'en-US'
-})
-const emit = defineEmits(['close', 'initialized'])
-const VM = shallowRef<any>(null)
+  screenshotName: "",
+  target: "target-mirror",
+  lang: "en-US",
+});
+const emit = defineEmits(["close", "initialized", "error"]);
+const VM = shallowRef<any>(null);
 
 const vmOptions = computed(() => {
   return {
     key: props.vmKey,
     channel: props.channel,
     brand: props.brand,
-    storeId: props.storeId
-  }
-})
+    storeId: props.storeId,
+  };
+});
 
 const initVM = async () => {
-  const { VirtualMirror } = await import('@luxottica/virtual-mirror')
-  VM.value = VirtualMirror
+  const { VirtualMirror } = await import("@luxottica/virtual-mirror");
+  VM.value = VirtualMirror;
 
   VM.value
     .initialize({
       options: {
         ...vmOptions.value,
-        locale: props.lang
-      }
+        locale: props.lang,
+      },
     })
     .then(() => {
       const renderParams = {
         target: props.target,
-        upc: props.upc
-      }
-      return VM.value.renderMirror(renderParams)
+        upc: props.upc,
+      };
+      return VM.value.renderMirror(renderParams);
+    })
+    .catch((err: any) => {
+      emit("error", err);
     })
     .then(() => {
-      emit('initialized', () => ({ screenshot, close }))
-    })
-}
+      emit("initialized", () => ({ screenshot, close, switchUpc }));
+    });
+};
 const screenshot = () => {
   VM.value.getScreenshot().then((response: object) => {
-    const handler = props.imageHandler ?? downloadImage
-    const imgURI = 'imgURI' in response ? response.imgURI as string : ''
-    handler(imgURI, 'virtual-mirror', props.screenshotName, props.lang)
-  })
-}
-const close = () => {
-  const params = { target: props.target }
-  VM.value.closeMirror(params)
-}
+    const handler = props.imageHandler ?? downloadImage;
+    const imgURI = "imgURI" in response ? (response.imgURI as string) : "";
+    handler(imgURI, "virtual-mirror", props.screenshotName, props.lang);
+  });
+};
 
-onMounted(initVM)
+const switchUpc = (upc: string) => {
+  VM.value.renderMirror({
+    target: "target-mirror",
+    upc: upc,
+  });
+};
+
+const close = () => {
+  const params = { target: props.target };
+  VM.value.closeMirror(params);
+};
+
+onMounted(initVM);
 </script>
 
 <style lang="scss">
@@ -89,7 +100,7 @@ onMounted(initVM)
       left: auto;
       right: auto;
       font-size: 14px;
-      font-family: 'Glacial Indifference Regular';
+      font-family: "Glacial Indifference Regular";
       span {
         padding: 24px 32px;
         display: inline-block;
