@@ -7,7 +7,13 @@
 </template>
 
 <script lang="ts" setup>
-import { shallowRef, computed, onMounted, withDefaults } from "vue";
+import {
+  shallowRef,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  withDefaults,
+} from "vue";
 import downloadImage from "@/utils/downloadImage";
 
 export interface Props {
@@ -27,7 +33,7 @@ const props = withDefaults(defineProps<Props>(), {
   target: "target-mirror",
   lang: "en-US",
 });
-const emit = defineEmits(["close", "initialized", "error"]);
+const emit = defineEmits(["close", "initialized", "error", "race"]);
 const VM = shallowRef<any>(null);
 
 const vmOptions = computed(() => {
@@ -43,25 +49,45 @@ const initVM = async () => {
   const { VirtualMirror } = await import("@luxottica/virtual-mirror");
   VM.value = VirtualMirror;
 
-  VM.value
-    .initialize({
-      options: {
-        ...vmOptions.value,
-        locale: props.lang,
-      },
+  const initVmPromise = new Promise((resolve, reject) => {
+    VM.value
+      .initialize({
+        options: {
+          ...vmOptions.value,
+          locale: props.lang,
+        },
+      })
+      .then(() => {
+        const renderParams = {
+          target: props.target,
+          upc: props.upc,
+        };
+        emit("initialized", () => ({ screenshot, close, switchUpc }));
+        return resolve(VM.value.renderMirror(renderParams));
+      })
+      .catch((err: any) => {
+        emit("error", err);
+        reject(err);
+      });
+  });
+
+  const timeoutPromise = new Promise((resolve, reject) => {
+    setTimeout(() => {
+      resolve("error");
+    }, 30000);
+  });
+
+  Promise.race([initVmPromise, timeoutPromise])
+    .then((value) => {
+      if (value === "error") {
+        const err = new Error("timeout expired");
+        emit("error", err);
+        return err;
+      }
+      return value;
     })
-    .then(() => {
-      const renderParams = {
-        target: props.target,
-        upc: props.upc,
-      };
-      return VM.value.renderMirror(renderParams);
-    })
-    .catch((err: any) => {
+    .catch((err) => {
       emit("error", err);
-    })
-    .then(() => {
-      emit("initialized", () => ({ screenshot, close, switchUpc }));
     });
 };
 const screenshot = () => {
@@ -85,6 +111,15 @@ const close = () => {
 };
 
 onMounted(initVM);
+
+onBeforeUnmount(async () => {
+  return new Promise((resolve) => {
+    if (VM.value && VM.value.close) {
+      VM.value.close();
+      resolve(true);
+    }
+  });
+});
 </script>
 
 <style lang="scss">
